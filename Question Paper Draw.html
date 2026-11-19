@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Question Paper Draw</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: a header with the live count, then the student's two steps (name, pick) above a 5x3 grid of paper tiles; the examiner panel sits below for editors only. */
+:root{
+  --bg:#F5F8FC; --surface:#FFFFFF; --ink:#13263F; --muted:#5A6472; --line:#D9E3F0;
+  --accent:#0061B5; --accent-soft:#E6F0FB; --taken:#EEF1F5; --taken-ink:#7A8594;
+  --good:#1E8A4C; --good-soft:#E5F5EC; --bad:#C23B3B; --bad-soft:#FBEAEA;
+  --display:"Lexend", "Segoe UI", system-ui, sans-serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1622; --surface:#152132; --ink:#E7EEF7; --muted:#9AA8BA; --line:#26364B;
+    --accent:#4FA3F0; --accent-soft:#17304D; --taken:#1A2738; --taken-ink:#73839A;
+    --good:#4CC584; --good-soft:#12301F; --bad:#F07A7A; --bad-soft:#3A1A1A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1622; --surface:#152132; --ink:#E7EEF7; --muted:#9AA8BA; --line:#26364B;
+  --accent:#4FA3F0; --accent-soft:#17304D; --taken:#1A2738; --taken-ink:#73839A;
+  --good:#4CC584; --good-soft:#12301F; --bad:#F07A7A; --bad-soft:#3A1A1A;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+.wrap{max-width:880px;margin:0 auto;padding:28px 20px 48px;display:grid;gap:22px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:28px;font-weight:700}
+h2{font-size:18px;font-weight:600}
+.muted{color:var(--muted)}
+header{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.count{display:flex;align-items:baseline;gap:8px;font-family:var(--display);font-variant-numeric:tabular-nums}
+.count b{font-size:30px;color:var(--accent)}
+.bar{height:6px;border-radius:6px;background:var(--line);overflow:hidden;width:180px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;display:grid;gap:12px}
+.steps{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center}
+.num{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:14px}
+label{font-weight:600}
+input[type=text]{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:100%;max-width:360px}
+input[type=text]:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+@media (max-width:620px){.grid{grid-template-columns:repeat(3,1fr)}}
+.tile{font:inherit;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:12px 12px 14px;min-height:96px;display:grid;align-content:space-between;gap:6px;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+.tile:hover:not(:disabled){border-color:var(--accent);background:var(--accent-soft);transform:translateY(-2px)}
+.tile .lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tile .n{font-family:var(--display);font-size:30px;font-weight:700;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.tile .who{font-size:13px;font-weight:600;min-height:18px;overflow-wrap:anywhere}
+.tile.free .who{color:var(--good)}
+.tile.taken{background:var(--taken);cursor:not-allowed}
+.tile.taken .n{color:var(--taken-ink)}
+.tile.taken .who{color:var(--taken-ink)}
+.tile.mine{background:var(--good-soft);border-color:var(--good)}
+.tile.mine .n,.tile.mine .who{color:var(--good)}
+.tile.busy{opacity:.6}
+.msg{border-radius:12px;padding:12px 16px;font-weight:600;display:none}
+.msg.show{display:block}
+.msg.ok{background:var(--good-soft);color:var(--good)}
+.msg.err{background:var(--bad-soft);color:var(--bad)}
+.msg.info{background:var(--accent-soft);color:var(--accent)}
+.result{display:none;align-items:center;gap:18px;background:var(--good-soft);border:1px solid var(--good);border-radius:14px;padding:18px 20px}
+.result.show{display:flex}
+.result .big{font-family:var(--display);font-size:46px;font-weight:700;color:var(--good);line-height:1;font-variant-numeric:tabular-nums}
+.btn{font:inherit;font-weight:600;border-radius:10px;padding:9px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+a.btn{text-decoration:none;display:inline-block}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:15px}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.dialog{position:fixed;inset:0;background:rgba(10,20,35,.45);display:none;place-items:center;padding:20px}
+.dialog.show{display:grid}
+.dialog .box{background:var(--surface);border-radius:16px;padding:22px;max-width:380px;width:100%;display:grid;gap:14px;border:1px solid var(--line)}
+#admin{display:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Pick Your Question Paper</h1>
+      <div class="muted">Summative examination · each paper can go to one student only</div>
+    </div>
+    <div style="display:grid;gap:6px;justify-items:end">
+      <div class="count"><b id="takenCount">0</b><span class="muted">of 15 papers taken</span></div>
+      <div class="bar"><i id="barFill"></i></div>
+    </div>
+  </header>
+
+  <div class="msg info show" id="status">Connecting to the live draw…</div>
+
+  <div class="result" id="result" aria-live="polite">
+    <div class="big" id="resultNum">–</div>
+    <div>
+      <h2>This is your paper</h2>
+      <div id="resultText">Show this screen to the examiner.</div>
+      <div class="row" style="margin-top:12px">
+        <a class="btn primary" id="paperLink" href="#" target="_blank" rel="noopener">Open my question paper</a>
+      </div>
+      <div class="muted" style="font-size:13px;margin-top:8px;overflow-wrap:anywhere">If the button doesn’t open, copy this link: <span id="paperUrl"></span></div>
+    </div>
+  </div>
+
+  <section class="panel" id="pickPanel">
+    <div class="steps">
+      <div class="num">1</div>
+      <div class="row">
+        <label for="name">Your full name</label>
+        <input type="text" id="name" autocomplete="name" placeholder="e.g. Anjali Menon" maxlength="60">
+      </div>
+      <div class="num">2</div>
+      <div>Click any paper marked <b style="color:var(--good)">Available</b>. Once you take a paper, it’s yours, nobody else can pick it, and its link opens for you.</div>
+    </div>
+  </section>
+
+  <div class="msg" id="msg" role="alert"></div>
+
+  <section class="grid" id="grid" aria-label="Question papers"></section>
+
+  <section class="panel" id="admin">
+    <div class="row" style="justify-content:space-between">
+      <h2>Examiner view</h2>
+      <div class="row">
+        <button class="btn" id="copyBtn" type="button">Copy list</button>
+        <button class="btn danger" id="resetBtn" type="button">Reset all papers</button>
+      </div>
+    </div>
+    <div class="muted" style="font-size:14px">Only editors of this page see this panel. Click Release to free a paper picked by mistake.</div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Paper</th><th>Student</th><th>Picked at</th><th>Form</th><th></th></tr></thead>
+        <tbody id="adminRows"><tr><td colspan="5" class="muted">No papers picked yet.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+  <div class="box">
+    <h2 id="dlgTitle">Take this paper?</h2>
+    <div id="dlgText"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" id="dlgNo" type="button">Cancel</button>
+      <button class="btn primary" id="dlgYes" type="button">Yes, take it</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOTAL = 15;
+const LINKS = {
+  1: "https://docs.google.com/forms/d/e/1FAIpQLSf4cq_sDE_lbQEW33AA1UsT83U607a9gv9zpEsOSoSZ9iuLOQ/viewform",
+  2: "https://docs.google.com/forms/d/e/1FAIpQLSeZDxGUOCpzL-sXJexmIG6q-s0ZrYEcZHSXw2maPgUxCUlRzw/viewform",
+  3: "https://docs.google.com/forms/d/e/1FAIpQLScwYSeyQG8looK_bPdDeQdM06_iye2BgOVnbY10fYCTZUnDpA/viewform",
+  4: "https://docs.google.com/forms/d/e/1FAIpQLSckMNrK2tTmtG8HpVavbRV7CenaMVs5ztVfK2HJsrBbzJV-5w/viewform",
+  5: "https://docs.google.com/forms/d/e/1FAIpQLSfWBU3XFQF0J9ZzAp7_N0llpOR0_i7Py0dge5wulEUNDBvT_Q/viewform",
+  6: "https://docs.google.com/forms/d/e/1FAIpQLScCBAB-aAKiy3LKmTRcS-arZv0drZFc4NK2Cp6OLPVQmVMaUA/viewform",
+  7: "https://docs.google.com/forms/d/e/1FAIpQLScvxyk0fAR9l3I_Q164NBfHRApg962c-VmPExf5EUgLRoqNTA/viewform",
+  8: "https://docs.google.com/forms/d/e/1FAIpQLSeWxWWyyppnpipHyNOikLCwA83MIIVjSLlAAEiu4am-gB8clg/viewform",
+  9: "https://docs.google.com/forms/d/e/1FAIpQLSfejaT8K6IBi7Zwzb7R5GLwxgCuXAKk2VIFN-fCKvREFFsRGA/viewform",
+  10: "https://docs.google.com/forms/d/e/1FAIpQLSeyJYt-fnABJeQZpcxMi8CKIPeYai63vjw9_H5NrCAg92Yglw/viewform",
+  11: "https://docs.google.com/forms/d/e/1FAIpQLSdxt5-_ztq2avB9RfFdVhb9ggACFATdwhkspFF7fNWDifSnHw/viewform",
+  12: "https://docs.google.com/forms/d/e/1FAIpQLSeLXQQR5kkHB5iVrTpO2FbimBIktj1WgMushDw6cYNjkFtZCw/viewform",
+  13: "https://docs.google.com/forms/d/e/1FAIpQLSfgJ02827SjYeYLunKwLsTD0gniht3rWm0JrLHoyZqirZETZg/viewform",
+  14: "https://docs.google.com/forms/d/e/1FAIpQLScGIE2FYJVHLEWUPajGxQw2DfUyDhpYdOE1J8oRdkbQWsH1Zw/viewform",
+  15: "https://docs.google.com/forms/d/e/1FAIpQLSc6gMYiZuVBrtHLhbzKoLRELimQABwuq1zFmFGPaHExatbc7Q/viewform"
+};
+const pad = n => String(n).padStart(2, "0");
+const $ = id => document.getElementById(id);
+const tabId = "tab-" + Math.random().toString(36).slice(2);
+
+let db = null, user = null, uid = null, canAdmin = false;
+let claims = {};          // paper number -> {name, uid, at}
+let loaded = false, working = false;
+
+function showMsg(text, kind){
+  const m = $("msg");
+  m.textContent = text; m.className = "msg show " + kind;
+}
+function clearMsg(){ $("msg").className = "msg"; }
+function setStatus(text, kind){
+  const s = $("status");
+  if(!text){ s.className = "msg"; return; }
+  s.textContent = text; s.className = "msg show " + (kind || "info");
+}
+function myName(){ return $("name").value.trim().replace(/\s+/g, " "); }
+function myPaper(){
+  for (const [n, c] of Object.entries(claims)) {
+    if (uid && c.uid === uid) return Number(n);
+  }
+  return null;
+}
+
+function render(){
+  const grid = $("grid");
+  grid.textContent = "";
+  const mine = myPaper();
+  for (let n = 1; n <= TOTAL; n++) {
+    const c = claims[n];
+    const b = document.createElement("button");
+    b.type = "button"; b.id = "paper-" + n;
+    const isMine = mine === n;
+    b.className = "tile " + (isMine ? "mine" : c ? "taken" : "free");
+    b.disabled = !loaded || !!c || mine !== null || working;
+    const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = "Paper";
+    const num = document.createElement("span"); num.className = "n"; num.textContent = pad(n);
+    const who = document.createElement("span"); who.className = "who";
+    who.textContent = isMine ? "Yours" : c ? (c.name || "Taken") : (loaded ? "Available" : "…");
+    b.setAttribute("aria-label", `Paper ${n}, ${who.textContent}`);
+    b.append(lbl, num, who);
+    b.addEventListener("click", () => askClaim(n));
+    grid.append(b);
+  }
+  const taken = Object.keys(claims).length;
+  $("takenCount").textContent = taken;
+  $("barFill").style.width = (taken / TOTAL * 100) + "%";
+
+  if (mine !== null) {
+    $("result").classList.add("show");
+    $("resultNum").textContent = pad(mine);
+    $("resultText").textContent = `${claims[mine].name}, you have Question Paper ${mine}. Show this screen to the examiner.`;
+    $("paperLink").href = LINKS[mine];
+    $("paperLink").textContent = `Open Question Paper ${mine}`;
+    $("paperUrl").textContent = LINKS[mine];
+    $("pickPanel").style.display = "none";
+  } else {
+    $("result").classList.remove("show");
+    $("pickPanel").style.display = "";
+  }
+  renderAdmin();
+}
+
+function renderAdmin(){
+  if (!canAdmin) return;
+  $("admin").style.display = "grid";
+  const body = $("adminRows");
+  body.textContent = "";
+  const nums = Object.keys(claims).map(Number).sort((a,b)=>a-b);
+  if (!nums.length) {
+    const tr = document.createElement("tr"); const td = document.createElement("td");
+    td.colSpan = 5; td.className = "muted"; td.textContent = "No papers picked yet.";
+    tr.append(td); body.append(tr); return;
+  }
+  for (const n of nums) {
+    const c = claims[n];
+    const tr = document.createElement("tr");
+    const t1 = document.createElement("td"); t1.textContent = "Paper " + n;
+    const t2 = document.createElement("td"); t2.textContent = c.name || "-";
+    const t3 = document.createElement("td"); t3.textContent = c.at ? new Date(c.at).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : "-";
+    const tl = document.createElement("td");
+    const a = document.createElement("a"); a.href = LINKS[n]; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Open";
+    a.style.color = "var(--accent)"; tl.append(a);
+    const t4 = document.createElement("td");
+    const rb = document.createElement("button"); rb.className = "btn"; rb.type = "button"; rb.textContent = "Release";
+    rb.addEventListener("click", () => release(n, rb));
+    t4.append(rb);
+    tr.append(t1, t2, t3, tl, t4); body.append(tr);
+  }
+}
+
+// ---------- claiming
+let pending = null;
+function askClaim(n){
+  clearMsg();
+  const name = myName();
+  if (name.length < 2) { showMsg("Type your full name in step 1 first.", "err"); $("name").focus(); return; }
+  const dup = Object.values(claims).find(c => (c.name || "").toLowerCase() === name.toLowerCase());
+  if (dup) { showMsg(`The name “${name}” has already picked a paper. If that isn’t you, add your initial or surname.`, "err"); return; }
+  pending = n;
+  $("dlgText").textContent = `${name}, do you want Question Paper ${n}? You can’t change it after this.`;
+  $("dialog").classList.add("show");
+  $("dlgYes").focus();
+}
+$("dlgNo").addEventListener("click", () => { $("dialog").classList.remove("show"); pending = null; });
+$("dlgYes").addEventListener("click", () => {
+  $("dialog").classList.remove("show");
+  if (pending !== null) claim(pending);
+  pending = null;
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("dlgNo").click(); });
+
+async function claim(n){
+  if (!db || working) return;
+  working = true; render();
+  const name = myName();
+  const ref = db.doc("papers/p" + pad(n));
+  try {
+    const lease = await ref.acquire({ holder: uid || tabId, ttlMs: 5000 });
+    if (!lease.acquired) {
+      showMsg(`Someone else is taking Paper ${n} right now. Please pick a different paper.`, "err");
+      return;
+    }
+    const snap = await ref.get();
+    if (snap.exists && snap.data() && snap.data().name) {
+      showMsg(`Sorry, Paper ${n} was just taken by someone else. Please pick a different paper.`, "err");
+      return;
+    }
+    if (uid) {
+      const mineSnap = await db.collection("papers").where("uid", "==", uid).get();
+      if (!mineSnap.empty) {
+        showMsg("You have already picked a paper.", "err");
+        return;
+      }
+    }
+    await ref.set({ paper: n, name, uid: uid || null, at: Date.now() });
+    claims[n] = { name, uid, at: Date.now() };
+    showMsg(`Done! Question Paper ${n} is yours.`, "ok");
+  } catch (e) {
+    if (e && e.code === "invalid_argument") {
+      showMsg("This page won’t let you pick a paper. Ask the examiner to give you Contributor access.", "err");
+    } else if (e && e.code === "resource_exhausted") {
+      showMsg("Too many clicks at once. Wait a few seconds and try again.", "err");
+    } else {
+      showMsg("Couldn’t save your pick. Check your internet and try again.", "err");
+    }
+  } finally {
+    working = false; render();
+  }
+}
+
+async function release(n, btn){
+  if (!db) return;
+  btn.disabled = true;
+  try { await db.doc("papers/p" + pad(n)).delete(); }
+  catch (e) { showMsg("Couldn’t release that paper. Try again.", "err"); btn.disabled = false; }
+}
+
+let resetArmed = false;
+$("resetBtn").addEventListener("click", async () => {
+  const b = $("resetBtn");
+  if (!resetArmed) {
+    resetArmed = true; b.textContent = "Click again to reset";
+    setTimeout(() => { resetArmed = false; b.textContent = "Reset all papers"; }, 4000);
+    return;
+  }
+  resetArmed = false; b.disabled = true; b.textContent = "Resetting…";
+  try {
+    for (const n of Object.keys(claims)) await db.doc("papers/p" + pad(Number(n))).delete();
+    showMsg("All papers are available again.", "ok");
+  } catch (e) { showMsg("Reset stopped partway. Click Reset again.", "err"); }
+  b.disabled = false; b.textContent = "Reset all papers";
+});
+
+$("copyBtn").addEventListener("click", async () => {
+  const lines = Object.keys(claims).map(Number).sort((a,b)=>a-b)
+    .map(n => `Paper ${n}\t${claims[n].name}\t${LINKS[n]}`);
+  try { await navigator.clipboard.writeText(lines.join("\n") || "No papers picked yet."); $("copyBtn").textContent = "Copied"; }
+  catch { $("copyBtn").textContent = "Copy blocked"; }
+  setTimeout(() => $("copyBtn").textContent = "Copy list", 2000);
+});
+
+// ---------- start
+render();
+(async () => {
+  if (typeof claude === "undefined" || !claude.use) {
+    setStatus("This file needs its claude.ai link to save picks. Open the published Question Paper Draw page to run the live draw.", "err");
+    return;
+  }
+  db = await claude.use("db");
+  user = await claude.use("user");
+  if (!db) {
+    setStatus("Sign in to claude.ai to pick a paper. If you are signed in, ask the examiner to share this page with you.", "err");
+    return;
+  }
+  try { uid = user ? await user.id() : null; } catch { uid = null; }
+  try { canAdmin = user ? !!(await user.canEdit()) : false; } catch { canAdmin = false; }
+  let canWrite = null;
+  try { canWrite = user ? await user.can("data.write") : null; } catch { canWrite = null; }
+
+  const timer = setTimeout(() => {
+    if (!loaded) setStatus("Still connecting… the list may be out of date. Check your internet.", "err");
+  }, 10000);
+
+  db.collection("papers").onSnapshot(snap => {
+    const next = {};
+    for (const d of snap.docs) {
+      const v = d.data();
+      if (v && v.name && Number(v.paper) >= 1 && Number(v.paper) <= TOTAL) {
+        next[Number(v.paper)] = { name: String(v.name).slice(0, 60), uid: v.uid || null, at: v.at || null };
+      }
+    }
+    claims = next;
+    if (!snap.metadata.fromCache) {
+      clearTimeout(timer);
+      loaded = true;
+      if (canWrite === false) setStatus("You can see the draw, but you can’t pick a paper yet. Ask the examiner for Contributor access.", "err");
+      else setStatus("Live: picks from everyone appear here instantly.", "info");
+    }
+    render();
+  }, err => {
+    clearTimeout(timer);
+    setStatus("Lost connection to the live draw. Reload the page to reconnect.", "err");
+  });
+})();
+</script>
+</body>
+</html>
